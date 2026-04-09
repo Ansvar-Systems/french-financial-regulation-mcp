@@ -5,6 +5,7 @@
 [![npm version](https://badge.fury.io/js/%40ansvar%2Ffrench-financial-regulation-mcp.svg)](https://www.npmjs.com/package/@ansvar/french-financial-regulation-mcp)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/Ansvar-Systems/french-financial-regulation-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Ansvar-Systems/french-financial-regulation-mcp/actions/workflows/ci.yml)
+[![Docker](https://github.com/Ansvar-Systems/french-financial-regulation-mcp/actions/workflows/ghcr-build.yml/badge.svg)](https://github.com/Ansvar-Systems/french-financial-regulation-mcp/actions/workflows/ghcr-build.yml)
 
 Query French financial regulation data -- regulations, decisions, and requirements from AMF/ACPR (Autorite des marches financiers / Autorite de controle prudentiel et de resolution) -- directly from Claude, Cursor, or any MCP-compatible client.
 
@@ -90,16 +91,20 @@ npx @ansvar/french-financial-regulation-mcp
 
 ---
 
-## Available Tools (6)
+## Available Tools (8)
 
 | Tool | Description |
 |------|-------------|
-| `fr_fin_search_regulations` | Recherche plein texte dans les dispositions AMF et ACPR. Retourne les règles, positions, recommandations et instructi... |
-| `fr_fin_get_regulation` | Récupère une disposition AMF ou ACPR spécifique par recueil et référence. Accepte des références telles que |
-| `fr_fin_list_sourcebooks` | Liste tous les recueils AMF et ACPR avec leurs noms et descriptions. (List all AMF and ACPR sourcebooks with names an... |
-| `fr_fin_search_enforcement` | Recherche les décisions de sanction AMF et ACPR — amendes, interdictions, avertissements et restrictions. (Search AMF... |
-| `fr_fin_check_currency` | Vérifie si une référence de disposition AMF ou ACPR est actuellement en vigueur. Retourne le statut et la date d |
-| `fr_fin_about` | Retourne les métadonnées de ce serveur MCP : version, source des données, liste des outils. (Return metadata about th... |
+| `fr_fin_search_regulations` | Full-text search across AMF and ACPR provisions (rules, positions, recommandations, instructions) |
+| `fr_fin_get_regulation` | Get a specific AMF or ACPR provision by sourcebook and reference (e.g. `RG AMF Art. 314-1`) |
+| `fr_fin_list_sourcebooks` | List all AMF and ACPR sourcebooks with names and descriptions |
+| `fr_fin_search_enforcement` | Search AMF and ACPR enforcement actions — fines, bans, warnings, and restrictions |
+| `fr_fin_check_currency` | Check whether a specific AMF or ACPR provision reference is currently in force |
+| `fr_fin_about` | Return metadata about this MCP server: version, data sources, tool list |
+| `fr_fin_check_data_freshness` | Return record counts and date of the latest indexed enforcement action |
+| `fr_fin_list_sources` | Return official source URLs for AMF and ACPR data used by this server |
+
+See [TOOLS.md](TOOLS.md) for full input/output documentation.
 
 All tools return structured data with source references and timestamps.
 
@@ -117,7 +122,7 @@ All content is sourced from official French regulatory publications:
 - Freshness checks run via GitHub Actions workflows
 - Last-updated timestamps in tool responses indicate data age
 
-See `sources.yml` for full provenance metadata.
+See [COVERAGE.md](COVERAGE.md) for full corpus and provenance details.
 
 ---
 
@@ -167,7 +172,7 @@ git clone https://github.com/Ansvar-Systems/french-financial-regulation-mcp
 cd french-financial-regulation-mcp
 npm install
 npm run build
-npm test
+npm run typecheck
 ```
 
 ### Running Locally
@@ -180,8 +185,8 @@ npx @anthropic/mcp-inspector node dist/index.js   # Test with MCP Inspector
 ### Data Management
 
 ```bash
-npm run build:db       # Rebuild SQLite database from seed data
-npm run check-updates  # Check for new regulatory data
+npm run seed    # Seed SQLite database with sample data
+npm run ingest  # Ingest regulatory data from official AMF sources
 ```
 
 ---
@@ -218,7 +223,7 @@ Apache License 2.0. See [LICENSE](./LICENSE) for details.
 
 ### Data Licenses
 
-Regulatory data sourced from official government publications. See `sources.yml` for per-source licensing details.
+Regulatory data sourced from official government publications (AMF and ACPR). See [COVERAGE.md](COVERAGE.md) for per-source details.
 
 ---
 
