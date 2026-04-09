@@ -27,6 +27,7 @@ import {
   getProvision,
   searchEnforcement,
   checkProvisionCurrency,
+  getDataFreshness,
 } from "./db.js";
 import { buildCitation } from "./citation.js";
 
@@ -44,6 +45,18 @@ try {
 }
 
 const SERVER_NAME = "french-financial-regulation-mcp";
+
+// --- Metadata block (included in every tool response) ------------------------
+
+const META = {
+  disclaimer:
+    "Ce serveur MCP fournit des données à titre informatif uniquement. Vérifiez toujours les sources officielles AMF et ACPR avant de prendre des décisions réglementaires. This tool is not legal or regulatory advice.",
+  data_age:
+    "Les données sont mises à jour périodiquement depuis les publications officielles AMF/ACPR. Data may lag official publications.",
+  copyright:
+    "Données issues des publications officielles de l'AMF et de l'ACPR. Domaine public français.",
+  source_url: "https://www.amf-france.org / https://acpr.banque-france.fr",
+} as const;
 
 // --- Tool definitions --------------------------------------------------------
 
@@ -153,6 +166,26 @@ const TOOLS = [
       required: [],
     },
   },
+  {
+    name: "fr_fin_check_data_freshness",
+    description:
+      "Retourne le nombre de dispositions et de décisions de sanction dans la base de données, ainsi que la date de la dernière décision indexée. (Returns record counts and the date of the latest indexed enforcement action.)",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "fr_fin_list_sources",
+    description:
+      "Retourne les URLs officielles des sources de données AMF et ACPR utilisées par ce serveur. (Returns official source URLs for AMF and ACPR data used by this server.)",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 // --- Zod schemas for argument validation ------------------------------------
@@ -196,6 +229,10 @@ function errorContent(message: string) {
   };
 }
 
+function withMeta<T extends object>(data: T): T & { _meta: typeof META } {
+  return { ...data, _meta: META };
+}
+
 // --- Server setup ------------------------------------------------------------
 
 const server = new Server(
@@ -220,7 +257,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           status: parsed.status,
           limit: parsed.limit,
         });
-        return textContent({ results, count: results.length });
+        return textContent(withMeta({ results, count: results.length }));
       }
 
       case "fr_fin_get_regulation": {
@@ -231,8 +268,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             `Disposition introuvable : ${parsed.sourcebook} ${parsed.reference}`,
           );
         }
-        const provisionRecord = provision as Record<string, unknown>;
-        return textContent({
+        const provisionRecord = provision as unknown as Record<string, unknown>;
+        return textContent(withMeta({
           ...provisionRecord,
           _citation: buildCitation(
             String(provisionRecord.reference ?? parsed.reference),
@@ -241,12 +278,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             { sourcebook: parsed.sourcebook, reference: parsed.reference },
             provisionRecord.url as string | undefined,
           ),
-        });
+        }));
       }
 
       case "fr_fin_list_sourcebooks": {
         const sourcebooks = listSourcebooks();
-        return textContent({ sourcebooks, count: sourcebooks.length });
+        return textContent(withMeta({ sourcebooks, count: sourcebooks.length }));
       }
 
       case "fr_fin_search_enforcement": {
@@ -256,17 +293,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           action_type: parsed.action_type,
           limit: parsed.limit,
         });
-        return textContent({ results, count: results.length });
+        return textContent(withMeta({ results, count: results.length }));
       }
 
       case "fr_fin_check_currency": {
         const parsed = CheckCurrencyArgs.parse(args);
         const currency = checkProvisionCurrency(parsed.reference);
-        return textContent(currency);
+        return textContent(withMeta(currency));
       }
 
       case "fr_fin_about": {
-        return textContent({
+        return textContent(withMeta({
           name: SERVER_NAME,
           version: pkgVersion,
           description:
@@ -279,7 +316,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             "ACPR Recommandations (https://acpr.banque-france.fr/reglementation/recommandations)",
           ],
           tools: TOOLS.map((t) => ({ name: t.name, description: t.description })),
-        });
+        }));
+      }
+
+      case "fr_fin_check_data_freshness": {
+        const freshness = getDataFreshness();
+        return textContent(withMeta(freshness));
+      }
+
+      case "fr_fin_list_sources": {
+        return textContent(withMeta({
+          sources: [
+            {
+              name: "AMF Règlement Général",
+              authority: "Autorité des marchés financiers",
+              url: "https://www.amf-france.org/fr/reglementation/reglement-general",
+              sourcebook_id: "AMF_Reglement_General",
+            },
+            {
+              name: "AMF Positions-Recommandations",
+              authority: "Autorité des marchés financiers",
+              url: "https://www.amf-france.org/fr/reglementation/doctrine",
+              sourcebook_id: "AMF_Positions",
+            },
+            {
+              name: "AMF Doctrine",
+              authority: "Autorité des marchés financiers",
+              url: "https://www.amf-france.org/fr/reglementation/doctrine",
+              sourcebook_id: "AMF_Doctrine",
+            },
+            {
+              name: "ACPR Instructions",
+              authority: "Autorité de contrôle prudentiel et de résolution",
+              url: "https://acpr.banque-france.fr/reglementation/instructions",
+              sourcebook_id: "ACPR_Instructions",
+            },
+            {
+              name: "ACPR Recommandations",
+              authority: "Autorité de contrôle prudentiel et de résolution",
+              url: "https://acpr.banque-france.fr/reglementation/recommandations",
+              sourcebook_id: "ACPR_Recommandations",
+            },
+          ],
+        }));
       }
 
       default:
